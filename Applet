@@ -1,0 +1,14 @@
+Creating a simple applet that would trigger an event on receiving a request from the esp32.
+The applet is created on the platform "www.ifttt.com".
+The applet consists of two parts, 1) the trigger & 2) the event
+
+->the trigger: 
+It is a request sent from the esp32 to the applet with an api key. 
+The trigger depends on the status of the reed switch connected to one of the esp32 GPIOS.
+As soon as the reed switch closes or opens, the esp32 sends a trigger request to the applet.
+
+->the event:
+On receiving the trigger or request, the applet authenticates it using the API key and then sends a response email to the user.
+
+The applet named, "door_status" is a private applet created on the ifttt website.
+
