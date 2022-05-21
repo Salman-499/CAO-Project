@@ -1,0 +1,123 @@
+#include <Keypad.h>
+
+#define ROW_C     1 // 1 rows
+#define COL_C  4 // four columns
+
+char control_keypad[ROW_C][COL_C] = {
+    {'1','2','3','4'}
+};
+
+byte rowPins_c[ROW_C] = {5}; //connect to the row pinouts of the keypad
+byte colPins_c[COL_C] = {4,2,17,16}; //connect to the column pinouts of the keypad
+
+Keypad keypad = Keypad( makeKeymap(control_keypad), rowPins_c, colPins_c, ROW_C, COL_C);
+const String password = "32"; // change your password here
+String input_password;
+
+
+
+#include <WiFi.h>
+const int led = 18; //optional
+
+//state of door
+bool state;
+
+String doorState;
+
+
+const char* ssid = "Leo Net";
+const char* passcode = "pakistan4321";
+const char* host = "maker.ifttt.com";
+const char* apiKey = "dsfY_8bMQLJBMiYnzws5n4";
+
+// Runs whenever the led changes state
+ICACHE_RAM_ATTR void changeDoorStatus() {
+  Serial.println("State changed");
+
+}
+
+void setup() {
+  Serial.begin(115200);
+  input_password.reserve(32);
+  pinMode(led, OUTPUT);
+  state = digitalRead(led);
+  doorState="closed";
+
+  
+  
+  // Set the reedswitch pin as interrupt, assign interrupt function and set CHANGE mode
+  attachInterrupt(digitalPinToInterrupt(18), changeDoorStatus, HIGH);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, passcode);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println("");
+    Serial.println("WiFi connected");  
+}
+
+void loop() {
+  char key = keypad.getKey();
+
+  if (key) {
+    Serial.println(key);
+
+    if (key == '1') {
+      input_password = ""; // clear input password
+    } else if (key == '4') {
+      if (password == input_password) {
+        Serial.println("The password is correct, ACCESS GRANTED!");
+        // DO YOUR WORK HERE
+                            digitalWrite(18, HIGH); // turn the LED on
+                             state = digitalRead(led);
+                            if(state) {
+                            doorState = "open";
+                          }
+                          else{
+                            doorState = "closed";
+                          }
+                         
+                          Serial.println(state);
+                          Serial.println(doorState);
+                    
+                          //Send email
+                          Serial.print("connecting to ");
+                          Serial.println(host);
+                          WiFiClient client;
+                          const int httpPort = 80;
+                          if (!client.connect(host, httpPort)) {
+                            Serial.println("connection failed");
+                            return;
+                          }
+                    
+                          String url = "/trigger/door_status/with/key/";
+                          url += apiKey;
+                    
+                          Serial.print("Requesting URL: ");
+                          Serial.println(url);
+                          client.print(String("POST ") + url + " HTTP/1.1\r\n" +
+                                         "Host: " + host + "\r\n" + 
+                                         "Content-Type: application/x-www-form-urlencoded\r\n" + 
+                                         "Content-Length: 13\r\n\r\n" +
+                                         "value1=" + doorState + "\r\n");
+                      
+                      delay(10000);
+                          
+                      digitalWrite(18, LOW);  // turn the LED off
+                      delay(10000); 
+                        
+
+      } 
+      else {
+        Serial.println("The password is incorrect, ACCESS DENIED!");
+      }
+
+      input_password = ""; // clear input password
+    } 
+    else {
+      input_password += key; // append new character to input password string
+    }
+  }
+}
