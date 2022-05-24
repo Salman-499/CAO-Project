@@ -1,0 +1,245 @@
+/*we include the adafruit libraries for mpu6050 accelerometer working 
+and ESP_Mail_Client library to send emails over smtp server*/
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include <ESP_Mail_Client.h>
+#include <Keypad.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Wire.h>
+
+/*defining rows and columns for key pad*/
+#define ROW_NUM     4 // four rows
+#define COLUMN_NUM  4 // four columns
+
+
+/*defining red led*/
+#define Red_led 25
+#define Yellow_led 32
+
+
+/*insert your own wifi ssid and password*/
+#define WIFI_SSID "Leo Net"
+#define WIFI_PASSWORD "pakistan4321"
+
+/*we have used gmail as our smtp host*/
+#define SMTP_HOST "smtp.gmail.com"
+#define SMTP_PORT 465
+
+
+
+/* The sign in credentials */
+/*you can use your own author email and password*/
+#define AUTHOR_EMAIL "xzyrandom21@gmail.com"
+#define AUTHOR_PASSWORD "ktpwcrfpjyjususu"
+
+/* Recipient's email*/
+/* you can define your own recipent email*/
+#define RECIPIENT_EMAIL "salkhan499@gmail.com"
+
+/* creating SMTP Session object used for Email sending */
+SMTPSession smtp;
+
+/* Declare the message class */
+SMTP_Message message;
+
+/* Declare the session config data */
+ESP_Mail_Session session;
+                            
+/*declaring an instance of the accelerometer class*/  
+Adafruit_MPU6050 mpu;
+
+
+/*defining keys of the keypad*/
+char keys[ROW_NUM][COLUMN_NUM] = {
+  {'1', '2', '3', 'A'},
+  {'4', '5', '6', 'B'},
+  {'7', '8', '9', 'C'},
+  {'*', '0', '#', 'D'}
+};
+
+byte pin_rows[ROW_NUM]      = {19, 18, 5, 17}; // GIOP19, GIOP18, GIOP5, GIOP17 connect to the row pins
+byte pin_column[COLUMN_NUM] = {16, 4, 2, 15};   // GIOP16, GIOP4, GIOP2, GIOP15 connect to the column pins
+static int avg_acc=0;
+
+Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROW_NUM, COLUMN_NUM );
+
+const String password1 = "7890"; // change your password here
+static String input_password="0";// initializing input password with 0
+  
+
+
+
+
+//state of door
+bool state;
+
+String doorState; // can be close or open
+
+/*insert your own wifi credentials*/
+const char* ssid = "Leo Net"; 
+const char* passcode = "pakistan4321";
+
+
+
+
+void setup() {
+  Serial.begin(115200); //buad rate according to your esp32
+  input_password.reserve(32); //maximum input characters is 33, change if needed
+  pinMode(Yellow_led, OUTPUT);
+  pinMode(Red_led, OUTPUT);
+  state = digitalRead(Red_led);
+  doorState="closed";
+    
+  while (!Serial)
+  delay(10); // will pause Zero, Leonardo, etc until serial console opens
+
+  Serial.println("Adafruit MPU6050 test!");
+
+  // Try to initialize! if failed then mention
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  Serial.println("MPU6050 Found!");
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  Serial.print("Accelerometer range set to: ");
+  Serial.println("+-8G");
+ 
+
+
+  
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, passcode);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println("");
+    Serial.println("WiFi connected");
+    /*Enable the debug via Serial port
+      none debug or 0
+      basic debug or 1
+    */
+  smtp.debug(1);
+  
+}
+
+void loop() {
+  char key = keypad.getKey(); // create a char variable to store key value every time key is pressed
+  sensors_event_t a, g, temp; // mpu sensor events, a holds acceleration, g holds  gyroscope postion, and temp for temperature
+  mpu.getEvent(&a, &g, &temp); // passing by reference to get values for variables a, g and temp from the sensore
+  avg_acc=(avg_acc+a.acceleration.z)/2; 
+  /* average acceleration holds the average value of acceleration
+  observed along z axis for every iteration with 2.5ms delay*/
+  
+  //Serial.println(input_password);
+  
+  if(password1 != input_password){
+  digitalWrite(Yellow_led, LOW);
+  digitalWrite(Red_led, HIGH);
+  doorState="closed";
+  }
+   
+  state = digitalRead(Red_led);
+    if (key) {
+    Serial.println(key);
+    
+/*note that to enter password, it must start with 'A' and end with 'D'*/
+    if (key == 'A') {
+      input_password = ""; // clear input password
+    } else if (key == 'D') {
+      if (password1 == input_password) {
+        digitalWrite(Yellow_led, HIGH);
+        digitalWrite(Red_led, LOW);
+        state = digitalRead(Red_led);
+        Serial.println("green light go!");
+        doorState="open";
+                            
+
+      } 
+      else{
+                              digitalWrite(Yellow_led, LOW);
+                              digitalWrite(Red_led, HIGH);
+                              state = digitalRead(Red_led);
+
+      }
+
+     // input_password = ""; // clear input password
+    } 
+    
+    else  {
+      input_password += key; // append new character to input password string
+    }
+    }
+  
+  /*in case of detection of motion and keypad lock, the leds start to blink*/
+  if(avg_acc>0.0025 && password1 != input_password ){
+
+                             digitalWrite(Yellow_led, LOW);
+                              digitalWrite(Red_led, HIGH);
+                              delay(500);
+                              digitalWrite(Yellow_led, HIGH);
+                              digitalWrite(Red_led, LOW);
+                              delay(500);
+                              digitalWrite(Yellow_led, LOW);
+                              digitalWrite(Red_led, HIGH);
+                              delay(500);
+                              digitalWrite(Yellow_led, HIGH);
+                              digitalWrite(Red_led, LOW);
+                              delay(500);
+                              digitalWrite(Yellow_led, LOW);
+                              digitalWrite(Red_led, HIGH);
+                              delay(500);
+                                digitalWrite(Yellow_led, HIGH);
+                              digitalWrite(Red_led, LOW);
+                              delay(500);
+                              digitalWrite(Yellow_led, LOW);
+                              digitalWrite(Red_led, HIGH);
+                              delay(500);
+                              
+                              Serial.print(a.acceleration.z);
+                               Serial.println(" m/s^2");  
+                              doorState = "breached";
+                            Serial.println("the Led state is:");
+                            Serial.println(state);
+                            Serial.println("the door state is:");
+                            Serial.println(doorState);
+
+                             
+                              /* This code connects to smpt server and sends the mail*/
+                              /* Set the session config */
+                              session.server.host_name = SMTP_HOST;
+                              session.server.port = SMTP_PORT;
+                              session.login.email = AUTHOR_EMAIL;
+                              session.login.password = AUTHOR_PASSWORD;
+                              session.login.user_domain = "";
+                            
+                             
+                              /* Set the message headers */
+                              message.sender.name = "ESP";
+                              message.sender.email = AUTHOR_EMAIL;
+                              message.subject = "DOOR BREACHED";
+                              message.addRecipient("Salman", RECIPIENT_EMAIL);
+                            
+                              /*Send HTML message*/
+                              String htmlMsg = "<div style=\"color:#2f4468;\"><h1>YOUR DOOR HAS BEEN BREACHED!</h1><p>- Sent from ESP32 Powered Door alarm</p></div>";
+                              message.html.content = htmlMsg.c_str();
+                              message.html.content = htmlMsg.c_str();
+                              message.text.charSet = "us-ascii";
+                              message.html.transfer_encoding = Content_Transfer_Encoding::enc_7bit;
+                            /* Connect to server with the session config */
+                            if (!smtp.connect(&session))
+                              return;  
+                               /* Start sending Email and close the session */
+                                if (!MailClient.sendMail(&smtp, &message))
+                                  Serial.println("Error sending Email, " + smtp.errorReason());
+                                                           
+  }
+  delay(250);
+
+}
